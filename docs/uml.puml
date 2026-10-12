@@ -1,0 +1,140 @@
+@startuml uml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+class Main <<client>> {
+  +main(args: String[])
+  -report(exams, admin, id)
+  -reset(data: Path)
+}
+
+class ExamFacade <<facade>> {
+  -a: SessionStore
+  -b: MonitoringStore
+  -c: TranscriptStore
+  -flowFile: Path
+  +takeExam(studentId, tabSwitches, score): String
+  +start(studentId, tabSwitches, score): String
+  +resume(id): Status
+  +getStatus(id): Status
+  +getFailureReason(id): String
+  +ids(): List<String>
+  ~setStatus(id, status)
+  -compensate(id, reason)
+}
+enum "ExamFacade.Status" as Status {
+  PENDING_B
+  PENDING_C
+  COMPLETED
+  COMPENSATED
+}
+class AdminFacade <<facade>> {
+  -exams: ExamFacade
+  -a: SessionStore
+  -b: MonitoringStore
+  -c: TranscriptStore
+  +inspect(id): String
+  +listAll(): List<String>
+  +revoke(id)
+}
+class ExamException
+
+class SessionStore <<gateway>> #F1F8E9 {
+  -file: Path
+  +start(studentId): Session
+  +cancel(id)
+  +find(id): Session
+}
+class IdentityVerifier <<logic>> #F1F8E9 {
+  +isValid(studentId): boolean
+}
+class Session <<entity>> #F1F8E9 {
+  +id: String
+  +studentId: String
+  +status: Status
+  +verify()
+  +cancel()
+}
+enum "Session.Status" as SessionStatus #F1F8E9 {
+  NEW
+  VERIFIED
+  CANCELLED
+}
+class InvalidStudentException #F1F8E9
+
+class MonitoringStore <<gateway>> #FFF3E0 {
+  -file: Path
+  +check(sessionId, tabSwitches)
+  +voidRecord(sessionId)
+  +find(sessionId): MonitoringRecord
+}
+class CheatingDetector <<logic>> #FFF3E0 {
+  +isCheating(tabSwitches): boolean
+}
+class MonitoringRecord <<entity>> #FFF3E0 {
+  +sessionId: String
+  +status: Status
+  +clear()
+  +flag()
+  +voidIt()
+}
+enum "MonitoringRecord.Status" as MonitoringStatus #FFF3E0 {
+  PENDING
+  CLEARED
+  FLAGGED
+  VOIDED
+}
+class CheatingDetectedException #FFF3E0
+
+class TranscriptStore <<gateway>> #F3E5F5 {
+  -file: Path
+  +record(sessionId, score)
+  +revoke(sessionId)
+  +find(sessionId): Grade
+}
+class GradingEngine <<logic>> #F3E5F5 {
+  +isValid(score): boolean
+}
+class Grade <<entity>> #F3E5F5 {
+  +sessionId: String
+  +score: int
+  +status: Status
+  +record()
+  +revoke()
+}
+enum "Grade.Status" as GradeStatus #F3E5F5 {
+  NEW
+  RECORDED
+  REVOKED
+}
+class InvalidScoreException #F3E5F5
+
+Main --> ExamFacade : uses
+Main --> AdminFacade : uses
+AdminFacade --> "1" ExamFacade : exams
+ExamFacade ..> Status
+ExamFacade ..> ExamException : <<throws>>
+
+ExamFacade --> "1" SessionStore : a
+ExamFacade --> "1" MonitoringStore : b
+ExamFacade --> "1" TranscriptStore : c
+AdminFacade --> "1" SessionStore
+AdminFacade --> "1" MonitoringStore
+AdminFacade --> "1" TranscriptStore
+
+SessionStore *-- "1" IdentityVerifier
+SessionStore ..> Session : creates / loads
+SessionStore ..> InvalidStudentException : <<throws>>
+Session --> SessionStatus
+
+MonitoringStore *-- "1" CheatingDetector
+MonitoringStore ..> MonitoringRecord : creates / loads
+MonitoringStore ..> CheatingDetectedException : <<throws>>
+MonitoringRecord --> MonitoringStatus
+
+TranscriptStore *-- "1" GradingEngine
+TranscriptStore ..> Grade : creates / loads
+TranscriptStore ..> InvalidScoreException : <<throws>>
+Grade --> GradeStatus
+@enduml
