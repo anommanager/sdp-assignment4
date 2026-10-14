@@ -1,15 +1,16 @@
 package exam.monitoring;
 
+import com.google.gson.*;
 import java.io.*;
 import java.nio.file.*;
-import java.util.Properties;
 
 public class MonitoringStore {
   private final Path file;
   private final CheatingDetector detector = new CheatingDetector();
+  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
   public MonitoringStore(Path dataDir) {
-    file = dataDir.resolve("monitoring.properties");
+    file = dataDir.resolve("monitoring.json");
   }
 
   public void check(String sessionId, int tabSwitches) {
@@ -30,29 +31,33 @@ public class MonitoringStore {
   }
 
   public MonitoringRecord find(String sessionId) {
-    String status = load().getProperty(sessionId);
-    return status == null ? null : new MonitoringRecord(sessionId, MonitoringRecord.Status.valueOf(status));
+    JsonElement el = load().get(sessionId);
+    return el == null ? null : new MonitoringRecord(sessionId, MonitoringRecord.Status.valueOf(el.getAsString()));
   }
 
   private void save(MonitoringRecord r) {
-    Properties p = load();
-    p.setProperty(r.sessionId, r.status.name());
+    JsonObject root = load();
+    root.addProperty(r.sessionId, r.status.name());
+    write(root);
+  }
+
+  private JsonObject load() {
+    try (Reader r = Files.newBufferedReader(file)) {
+      JsonObject obj = GSON.fromJson(r, JsonObject.class);
+      return obj != null ? obj : new JsonObject();
+    } catch (IOException noFileYet) {
+      return new JsonObject();
+    }
+  }
+
+  private void write(JsonObject root) {
     try {
       Files.createDirectories(file.getParent());
       try (Writer w = Files.newBufferedWriter(file)) {
-        p.store(w, null);
+        GSON.toJson(root, w);
       }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-  }
-
-  private Properties load() {
-    Properties p = new Properties();
-    try (Reader r = Files.newBufferedReader(file)) {
-      p.load(r);
-    } catch (IOException noFileYet) {
-    }
-    return p;
   }
 }

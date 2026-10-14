@@ -1,15 +1,16 @@
 package exam.grading;
 
+import com.google.gson.*;
 import java.io.*;
 import java.nio.file.*;
-import java.util.Properties;
 
 public class TranscriptStore {
   private final Path file;
   private final GradingEngine engine = new GradingEngine();
+  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
   public TranscriptStore(Path dataDir) {
-    file = dataDir.resolve("transcript.properties");
+    file = dataDir.resolve("transcript.json");
   }
 
   public void record(String sessionId, int score) {
@@ -27,32 +28,40 @@ public class TranscriptStore {
   }
 
   public Grade find(String sessionId) {
-    String line = load().getProperty(sessionId);
-    if (line == null)
+    JsonObject entry = load().getAsJsonObject(sessionId);
+    if (entry == null)
       return null;
-    String[] f = line.split(";");
-    return new Grade(sessionId, Integer.parseInt(f[0]), Grade.Status.valueOf(f[1]));
+    int score = entry.get("score").getAsInt();
+    Grade.Status status = Grade.Status.valueOf(entry.get("status").getAsString());
+    return new Grade(sessionId, score, status);
   }
 
   private void save(Grade g) {
-    Properties p = load();
-    p.setProperty(g.sessionId, g.score + ";" + g.status);
+    JsonObject root = load();
+    JsonObject entry = new JsonObject();
+    entry.addProperty("score", g.score);
+    entry.addProperty("status", g.status.name());
+    root.add(g.sessionId, entry);
+    write(root);
+  }
+
+  private JsonObject load() {
+    try (Reader r = Files.newBufferedReader(file)) {
+      JsonObject obj = GSON.fromJson(r, JsonObject.class);
+      return obj != null ? obj : new JsonObject();
+    } catch (IOException noFileYet) {
+      return new JsonObject();
+    }
+  }
+
+  private void write(JsonObject root) {
     try {
       Files.createDirectories(file.getParent());
       try (Writer w = Files.newBufferedWriter(file)) {
-        p.store(w, null);
+        GSON.toJson(root, w);
       }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-  }
-
-  private Properties load() {
-    Properties p = new Properties();
-    try (Reader r = Files.newBufferedReader(file)) {
-      p.load(r);
-    } catch (IOException noFileYet) {
-    }
-    return p;
   }
 }
