@@ -22,17 +22,15 @@ To reset the saved data, run `./gradlew run --args=--reset` or delete the folder
 
 Pick `1` and enter a student id, tab switches and a score:
 
-| Case | Input | Result |
-|---|---|---|
-| Normal | `S1234`, `0`, `90` | `flow=COMPLETED A=VERIFIED B=CLEARED C=RECORDED` |
-| B fails (cheating) | `S1234`, `9`, `90` | `flow=COMPENSATED A=CANCELLED B=FLAGGED C=-` |
-| C fails (bad score) | `S1234`, `0`, `150` | `flow=COMPENSATED A=CANCELLED B=VOIDED C=-` |
-| A fails (bad id) | `bob` | error, nothing saved |
+- Normal: `S1234`, `0`, `90` gives `flow=COMPLETED A=VERIFIED B=CLEARED C=RECORDED`
+- B fails (cheating): `S1234`, `9`, `90` gives `flow=COMPENSATED A=CANCELLED B=FLAGGED C=-`
+- C fails (bad score): `S1234`, `0`, `150` gives `flow=COMPENSATED A=CANCELLED B=VOIDED C=-`
+- A fails (bad id): `bob` gives an error, nothing is saved
 
 Other menu items:
 
 `2` only does step A. Exit and restart the app, then `3` with the id to finish the chain.
-`4` shows one exam, `5` list all exams, `6` undo an exam (admin).
+`4` shows one exam, `5` lists all exams, `6` undoes an exam (admin).
 
 ## Facades
 
@@ -77,10 +75,11 @@ String id = exams.takeExam("S1234", tabSwitches, score);
 
 ## Facade vs Adapter
 
-An Adapter makes a class fit an interface that the client already expects.
-My stores already have good interfaces, so there is nothing to adapt.
+The two patterns differ in intent. An Adapter is used to adapt the interface of one class to the interface expected by the client. A Facade provides a unified interface to a set of interfaces in a subsystem. In my case, there is no need to adapt anything, since all the required methods are already exposed (`start`, `check`, `record`, `cancel`, `voidRecord`, `revoke`). There is no target interface that `SessionStore`, `MonitoringStore` and `TranscriptStore` must match, and no existing API to wrap.
 
-My problem is coordination: "take an exam" uses three subsystems in the right order, and undo if B or C fail. A Facade hides this behind one method. An Adapter would not, the client would need to know the order and the undo rules.
+The actual requirement is to orchestrate the existing subsystems, not to adapt them. The single action of "take an exam" involves calling methods from three different stores in a defined order. If a step fails, the steps that already succeeded must be undone in reverse order: if `MonitoringStore` detects cheating, only the session in `SessionStore` is cancelled; if `TranscriptStore` rejects the score, the monitoring record is voided first and then the session is cancelled. The progress of the exam is also persisted, so that after a restart it can be resumed or undone. With Adapters, every store would be wrapped in another layer, but the client would still have to remember the order of operations, handle all the exceptions and decide what to undo. This logic is better encapsulated in one place, `ExamFacade.takeExam(...)`. The client does not need to know how the exam is taken, only that the Facade takes care of it. The same goes for inspecting and revoking already taken exams via `AdminFacade`.
+
+This is why the task calls for the Facade pattern: it provides a simpler interface to a complex set of subsystems. Adapters, on the other hand, are useful when an existing API has to be converted into another one (e.g. `InputStreamReader` adapts an `InputStream` to the `Reader` interface).
 
 ## Tests
 
