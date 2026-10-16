@@ -36,6 +36,10 @@ public class AdminFacade {
     return exams.ids().stream().map(id -> id + "  " + inspect(id)).toList();
   }
 
+  public void flagPlagiarism(String id) {
+    c.flagPlagiarism(id);
+  }
+
   public void revoke(String id) {
     if (exams.getStatus(id) == ExamFacade.Status.COMPENSATED)
       throw new ExamException("Already compensated: " + id);

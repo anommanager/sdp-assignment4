@@ -22,8 +22,8 @@ public class Main {
         Scanner in = new Scanner(System.in);
 
         while (true) {
-            System.out.println("\n1) take exam  2) start only (A)  3) resume  4) inspect  5) list all  6) revoke (admin)  0) exit");
-            System.out.println("   tab switches > 3 -> B fails | score validated before A | plagiarism -> C fails");
+            System.out.println("\n1) take exam  2) start only (A)  3) resume  4) inspect  5) list all  6) revoke (admin)  7) flag plagiarism (admin)  0) exit");
+            System.out.println("   tab switches > 3 or time expired -> B fails | score validated before A | plagiarism -> C fails");
             if (!in.hasNextLine())
                 return;
             String choice = in.nextLine().trim();
@@ -61,6 +61,12 @@ public class Main {
                         String id = in.nextLine().trim();
                         admin.revoke(id);
                         report(exams, admin, id);
+                    }
+                    case "7" -> {
+                        System.out.print("id: ");
+                        String id = in.nextLine().trim();
+                        admin.flagPlagiarism(id);
+                        System.out.println("Flagged for plagiarism: " + id);
                     }
                     case "0" -> {
                         return;

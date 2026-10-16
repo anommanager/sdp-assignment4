@@ -9,6 +9,12 @@ class Main <<client>> {
   -reset(data: Path)
 }
 
+class Exams <<factory>> {
+  +exams: ExamFacade
+  +admin: AdminFacade
+  +{static} open(dataDir: Path): Exams
+}
+
 class ExamFacade <<facade>> {
   -a: SessionStore
   -b: MonitoringStore
@@ -36,6 +42,7 @@ class AdminFacade <<facade>> {
   -c: TranscriptStore
   +inspect(id): String
   +listAll(): List<String>
+  +flagPlagiarism(id)
   +revoke(id)
 }
 class ExamException
@@ -66,15 +73,25 @@ class InvalidStudentException #F1F8E9
 class MonitoringStore <<gateway>> #FFF3E0 {
   -file: Path
   +check(sessionId, tabSwitches)
+  +check(sessionId, tabSwitches, startedAt)
   +voidRecord(sessionId)
   +find(sessionId): MonitoringRecord
+  +minutesRemaining(sessionId): int
 }
 class CheatingDetector <<logic>> #FFF3E0 {
   +isCheating(tabSwitches): boolean
+  +isTimeExpired(startedAt): boolean
+}
+class ExamTimer <<logic>> #FFF3E0 {
+  +{static} DEFAULT_LIMIT_MINUTES: int
+  +isExpired(startTimeMs, limitMinutes): boolean
+  +minutesElapsed(startTimeMs): int
+  +minutesRemaining(startTimeMs, limitMinutes): int
 }
 class MonitoringRecord <<entity>> #FFF3E0 {
   +sessionId: String
   +status: Status
+  +startedAt: long
   +clear()
   +flag()
   +voidIt()
@@ -86,15 +103,22 @@ enum "MonitoringRecord.Status" as MonitoringStatus #FFF3E0 {
   VOIDED
 }
 class CheatingDetectedException #FFF3E0
+class TimeExpiredException #FFF3E0
 
 class TranscriptStore <<gateway>> #F3E5F5 {
   -file: Path
   +record(sessionId, score)
+  +flagPlagiarism(sessionId)
   +revoke(sessionId)
   +find(sessionId): Grade
 }
 class GradingEngine <<logic>> #F3E5F5 {
   +isValid(score): boolean
+}
+class PlagiarismChecker <<logic>> #F3E5F5 {
+  -file: Path
+  +flag(sessionId)
+  +check(sessionId)
 }
 class Grade <<entity>> #F3E5F5 {
   +sessionId: String
@@ -109,9 +133,11 @@ enum "Grade.Status" as GradeStatus #F3E5F5 {
   REVOKED
 }
 class InvalidScoreException #F3E5F5
+class PlagiarismException #F3E5F5
 
-Main --> ExamFacade : uses
-Main --> AdminFacade : uses
+Main --> Exams : uses
+Exams --> "1" ExamFacade
+Exams --> "1" AdminFacade
 AdminFacade --> "1" ExamFacade : exams
 ExamFacade ..> Status
 ExamFacade ..> ExamException : <<throws>>
@@ -129,12 +155,17 @@ SessionStore ..> InvalidStudentException : <<throws>>
 Session --> SessionStatus
 
 MonitoringStore *-- "1" CheatingDetector
+MonitoringStore *-- "1" ExamTimer
 MonitoringStore ..> MonitoringRecord : creates / loads
 MonitoringStore ..> CheatingDetectedException : <<throws>>
+MonitoringStore ..> TimeExpiredException : <<throws>>
 MonitoringRecord --> MonitoringStatus
+CheatingDetector *-- "1" ExamTimer
 
 TranscriptStore *-- "1" GradingEngine
+TranscriptStore *-- "1" PlagiarismChecker
 TranscriptStore ..> Grade : creates / loads
 TranscriptStore ..> InvalidScoreException : <<throws>>
+TranscriptStore ..> PlagiarismException : <<throws>>
 Grade --> GradeStatus
 @enduml

@@ -15,9 +15,15 @@ public class MonitoringStore {
     }
 
     public void check(String sessionId, int tabSwitches) {
+        check(sessionId, tabSwitches, System.currentTimeMillis());
+    }
+
+    public void check(String sessionId, int tabSwitches, long startedAt) {
         if (find(sessionId) != null)
             throw new IllegalStateException("Monitoring record already exists: " + sessionId);
-        MonitoringRecord r = new MonitoringRecord(sessionId, MonitoringRecord.Status.PENDING);
+        if (detector.isTimeExpired(startedAt))
+            throw new TimeExpiredException();
+        MonitoringRecord r = new MonitoringRecord(sessionId, MonitoringRecord.Status.PENDING, startedAt);
         if (detector.isCheating(tabSwitches)) {
             r.flag();
             save(r);

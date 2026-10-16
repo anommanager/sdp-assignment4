@@ -52,8 +52,6 @@ abstract class ExamDsl {
 
     String plagiaristTakesExam() {
         String id = exams().start("S1234", 0, 90);
-        monitoring().check(id, 0);
-        exams().setStatus(id, ExamFacade.Status.PENDING_C);
         plagiarism().flag(id);
         exams().resume(id);
         return id;

@@ -52,4 +52,12 @@ class AdminFacadeTest extends ExamDsl {
   void inspectUnknownIdIsReported() {
     assertThrows(ExamException.class, () -> admin().inspect("nope"));
   }
+
+  @Test
+  void flagPlagiarismAndResumeCompensatesChain() {
+    String id = honestStudentOnlyPassedIdentity();
+    admin().flagPlagiarism(id);
+    exams().resume(id);
+    assertSavedState(id, "flow=COMPENSATED A=CANCELLED B=VOIDED C=-");
+  }
 }

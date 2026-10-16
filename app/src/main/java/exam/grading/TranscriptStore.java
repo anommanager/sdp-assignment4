@@ -26,6 +26,10 @@ public class TranscriptStore {
         save(g);
     }
 
+    public void flagPlagiarism(String sessionId) {
+        plagiarismChecker.flag(sessionId);
+    }
+
     public void revoke(String sessionId) {
         Grade g = find(sessionId);
         g.revoke();

@@ -48,7 +48,7 @@ public class ExamFacade {
         } catch (InvalidStudentException e) {
             throw new ExamException(e.getMessage());
         }
-        writeEntry(id, Status.PENDING_B, tabSwitches, score, null);
+        writeEntry(id, Status.PENDING_B, tabSwitches, score, System.currentTimeMillis(), null);
         return id;
     }
 
@@ -56,12 +56,13 @@ public class ExamFacade {
         JsonObject entry = readEntry(id);
         int tabSwitches = entry.get("tabSwitches").getAsInt();
         int score = entry.get("score").getAsInt();
+        long startedAt = entry.has("startedAt") ? entry.get("startedAt").getAsLong() : 0L;
 
         if (getStatus(id) == Status.PENDING_B) {
             MonitoringRecord m = b.find(id);
             if (m == null) {
                 try {
-                    b.check(id, tabSwitches);
+                    b.check(id, tabSwitches, startedAt);
                     setStatus(id, Status.PENDING_C);
                 } catch (RuntimeException e) {
                     compensate(id, "B failed: " + e.getMessage());
@@ -130,12 +131,13 @@ public class ExamFacade {
         return entry;
     }
 
-    private void writeEntry(String id, Status status, int tabSwitches, int score, String reason) {
+    private void writeEntry(String id, Status status, int tabSwitches, int score, long startedAt, String reason) {
         JsonObject root = loadAll();
         JsonObject entry = new JsonObject();
         entry.addProperty("status", status.name());
         entry.addProperty("tabSwitches", tabSwitches);
         entry.addProperty("score", score);
+        entry.addProperty("startedAt", startedAt);
         if (reason != null)
             entry.addProperty("reason", reason);
         root.add(id, entry);
