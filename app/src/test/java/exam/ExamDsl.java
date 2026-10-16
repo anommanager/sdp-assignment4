@@ -1,5 +1,6 @@
 package exam;
 
+import exam.grading.PlagiarismChecker;
 import exam.grading.TranscriptStore;
 import exam.identity.SessionStore;
 import exam.monitoring.MonitoringStore;
@@ -10,50 +11,59 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 abstract class ExamDsl {
-  @TempDir
-  Path dir;
+    @TempDir
+    Path dir;
 
-  ExamFacade exams() {
-    return new ExamFacade(identity(), monitoring(), grading(), dir);
-  }
+    ExamFacade exams() {
+        return new ExamFacade(identity(), monitoring(), grading(), dir);
+    }
 
-  AdminFacade admin() {
-    return new AdminFacade(exams(), identity(), monitoring(), grading());
-  }
+    AdminFacade admin() {
+        return new AdminFacade(exams(), identity(), monitoring(), grading());
+    }
 
-  ExamFacade afterRestart() {
-    return exams();
-  }
+    ExamFacade afterRestart() {
+        return exams();
+    }
 
-  SessionStore identity() {
-    return new SessionStore(dir);
-  }
+    SessionStore identity() {
+        return new SessionStore(dir);
+    }
 
-  MonitoringStore monitoring() {
-    return new MonitoringStore(dir);
-  }
+    MonitoringStore monitoring() {
+        return new MonitoringStore(dir);
+    }
 
-  TranscriptStore grading() {
-    return new TranscriptStore(dir);
-  }
+    TranscriptStore grading() {
+        return new TranscriptStore(dir);
+    }
 
-  String honestStudentTakesExam() {
-    return exams().takeExam("S1234", 0, 90);
-  }
+    PlagiarismChecker plagiarism() {
+        return new PlagiarismChecker(dir);
+    }
 
-  String cheaterTakesExam() {
-    return exams().takeExam("S1234", 9, 90);
-  }
+    String honestStudentTakesExam() {
+        return exams().takeExam("S1234", 0, 90);
+    }
 
-  String studentGetsBrokenScore() {
-    return exams().takeExam("S1234", 0, 150);
-  }
+    String cheaterTakesExam() {
+        return exams().takeExam("S1234", 9, 90);
+    }
 
-  String honestStudentOnlyPassedIdentity() {
-    return exams().start("S1234", 0, 90);
-  }
+    String plagiaristTakesExam() {
+        String id = exams().start("S1234", 0, 90);
+        monitoring().check(id, 0);
+        exams().setStatus(id, ExamFacade.Status.PENDING_C);
+        plagiarism().flag(id);
+        exams().resume(id);
+        return id;
+    }
 
-  void assertSavedState(String id, String expected) {
-    assertEquals(expected, admin().inspect(id));
-  }
+    String honestStudentOnlyPassedIdentity() {
+        return exams().start("S1234", 0, 90);
+    }
+
+    void assertSavedState(String id, String expected) {
+        assertEquals(expected, admin().inspect(id));
+    }
 }
